@@ -33,7 +33,7 @@ end
 settings = {}
 
 settings["external_walls_depth"] = ask_value("External walls depth", "Depth of the walls outside the box.", 3)
-settings["internal_walls_depth"] = ask_value("Internal walls depth", "Depth of the walls between compartiments.", 3)
+settings["internal_walls_depth"] = ask_value("Internal walls depth", "Depth of the floor.", 3)
 
 settings["floor_depth"]          = ask_value("Floor depth",          "Depth of the walls at both sides (left and right) of the cards holder.", 3)
 settings["top_margin"]           = ask_value("Top margin",           "Space on top of the cards up to reach the card holder top.", 3)
