@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+
+require "bundler/setup"
+require "box_generator"
+
+def print_title(string)
+  length = string.length
+  puts "*" * (length + 4)
+  puts "* #{string} *"
+  puts "*" * (length + 4)
+end
+
+def get_integer(default = nil)
+  question  = "Value (mm)"
+  question += " (default: #{default})" if default
+  question += ": "
+  print question
+  string = gets.chomp
+  string = default if string.empty? && default
+  string.to_i
+end
+
+def ask_value(title, description, default = nil)
+  puts
+  print_title(title)
+  puts
+  puts description
+  value = get_integer(default)
+  puts
+  value
+end
+
+settings = {}
+
+settings["external_walls_depth"] = ask_value("External walls depth", "Depth of the walls outside the box.", 3)
+settings["internal_walls_depth"] = ask_value("Internal walls depth", "Depth of the walls between compartiments.", 3)
+
+settings["floor_depth"]          = ask_value("Floor depth",          "Depth of the walls at both sides (left and right) of the cards holder.", 3)
+settings["top_margin"]           = ask_value("Top margin",           "Space on top of the cards up to reach the card holder top.", 3)
+
+settings["compartiment_x"]       = ask_value("Compartiment X",       "Width of each compartiment.", 40)
+settings["compartiment_z"]       = ask_value("Compartiment Z",       "Height of each compartiment.", 20)
+
+settings["compartiments_y"] = []
+compartiment_num = 1
+
+loop do
+  compartiment_y = ask_value("Compartiment ##{compartiment_num} Y", "Depth of compartiment ##{compartiment_num} (leave empty to finish).")
+  break if compartiment_y == 0
+  settings["compartiments_y"] << compartiment_y
+  compartiment_num += 1
+end
+
+print_title "Final settings"
+puts
+puts settings.inspect
+puts
+
+scad = BoxGenerator.new(settings).to_scad
+
+print "Writing file... "
+File.open("box_#{Time.now.to_i}.scad", "w") do |file|
+  file.write(scad)
+end
+puts "DONE"
