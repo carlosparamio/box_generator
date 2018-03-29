@@ -41,6 +41,9 @@ settings["top_margin"]           = ask_value("Top margin",           "Space on t
 settings["compartiment_x"]       = ask_value("Compartiment X",       "Width of each compartiment.", 40)
 settings["compartiment_z"]       = ask_value("Compartiment Z",       "Height of each compartiment.", 20)
 
+settings["magnets_height"]       = ask_value("Magnets height",       "Height of each magner at corners (leave blank if you don't want magnets).", 0)
+settings["magnets_diameter"]     = ask_value("Magnets diameter",     "Diameter of each magner at corners (leave blank if you don't want magnets).", 0)
+
 settings["compartiments_y"] = []
 compartiment_num = 1
 

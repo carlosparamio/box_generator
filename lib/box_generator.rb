@@ -17,6 +17,7 @@ class BoxGenerator
 difference() {
   #{main_cube}
   #{compartiments}
+  #{magnets if magnets?}
 }
     SCAD
   end
@@ -31,6 +32,8 @@ private
     compartiment_x
     compartiment_z
     compartiments_y
+    magnets_height
+    magnets_diameter
   ).each do |setting_name|
     define_method(setting_name) do
       settings[setting_name]
@@ -81,6 +84,17 @@ module roundedcube(xdim, ydim, zdim, rdim) {
       compartiments_y_subtotal += compartiment_y
     end
     compartiments
+  end
+
+  def magnets
+    "translate([#{external_walls_depth / 2}, #{external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);" +
+    "translate([#{external_x - external_walls_depth / 2}, #{external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);" +
+    "translate([#{external_walls_depth / 2}, #{external_y - external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);" +
+    "translate([#{external_x - external_walls_depth / 2}, #{external_y - external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);"
+  end
+
+  def magnets?
+    magnets_height > 0 && magnets_diameter > 0
   end
 
 end
