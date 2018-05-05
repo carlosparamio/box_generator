@@ -1,5 +1,13 @@
 require "box_generator/version"
+require "box_generator/compartiments_digger"
+require "core_ext/string"
 
+# Generates a custom box with parameterized compartiments, each with
+# optional curved surface, and with optional magnet holes.
+#
+# == Parameters:
+# settings::
+#   A Hash with the settings to build the box.
 class BoxGenerator
 
   attr_accessor :settings
@@ -8,30 +16,11 @@ class BoxGenerator
     self.settings = settings
   end
 
-  def to_scad
-    <<-SCAD
-#{comments}
-
-#{header}
-
-difference() {
-  #{main_cube}
-  #{compartiments}
-  #{magnets if magnets?}
-}
-    SCAD
-  end
-
-private
-
   %w(
-    external_walls_depth
-    internal_walls_depth
-    floor_depth
-    top_margin
-    compartiment_x
-    compartiment_z
-    compartiments_y
+    external_walls
+    compartiments_separation
+    floor
+    compartiments
     magnets_height
     magnets_diameter
   ).each do |setting_name|
@@ -41,60 +30,139 @@ private
   end
 
   def external_x
-    compartiment_x + external_walls_depth * 2
+    internal_x + external_walls * 2
   end
 
   def external_y
-    external_walls_depth * 2 + compartiments_y.inject(&:+) + (compartiments_y.size - 1) * internal_walls_depth
+    internal_y + external_walls * 2
   end
 
   def external_z
-    compartiment_z + floor_depth + top_margin
+    internal_z + floor
   end
 
-  def comments
-    <<-COMMENTS
-// Source: https://github.com/carlosparamio/box_generator
-// Settings: #{settings.inspect}
-    COMMENTS
+  def internal_x
+    compartiments.sum do |compartiments_row|
+      compartiments_row.map do |compartiment|
+        compartiment[0]
+      end.max
+    end + (compartiments.size - 1) * compartiments_separation
   end
 
-  def header
-    <<-HEADER
-module roundedcube(xdim, ydim, zdim, rdim) {
-  hull() {
-    translate([rdim, rdim, 0]) cylinder(h = zdim, r = rdim);
-    translate([xdim - rdim, rdim, 0]) cylinder(h = zdim, r = rdim);
-    translate([rdim, ydim - rdim, 0]) cylinder(h = zdim, r = rdim);
-    translate([xdim - rdim, ydim - rdim, 0]) cylinder(h = zdim, r = rdim);
-  }
-}
-    HEADER
+  def internal_y
+    compartiments.map do |compartiments_row|
+      compartiments_row.sum do |compartiment|
+        compartiment[1]
+      end + (compartiments_row.size - 1) * compartiments_separation
+    end.max
   end
 
-  def main_cube
-    "cube([#{external_x}, #{external_y}, #{external_z}]);"
-  end
-
-  def compartiments
-    compartiments = ""
-    compartiments_y_subtotal = 0
-    compartiments_y.each_with_index do |compartiment_y, index|
-      compartiments += "translate([#{external_walls_depth}, #{external_walls_depth + internal_walls_depth * index + compartiments_y_subtotal}, #{floor_depth}]) mirror([0, 1, 0]) rotate([90, 0, 0]) roundedcube(#{compartiment_x}, #{compartiment_z * 2}, #{compartiment_y}, #{compartiment_x / 5});"
-      compartiments_y_subtotal += compartiment_y
-    end
-    compartiments
-  end
-
-  def magnets
-    "translate([#{external_walls_depth / 2}, #{external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);" +
-    "translate([#{external_x - external_walls_depth / 2}, #{external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);" +
-    "translate([#{external_walls_depth / 2}, #{external_y - external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);" +
-    "translate([#{external_x - external_walls_depth / 2}, #{external_y - external_walls_depth / 2}, #{external_z - magnets_height + 1}]) cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);"
+  def internal_z
+    compartiments.map do |compartiments_row|
+      compartiments_row.map do |compartiment|
+        compartiment[2]
+      end.max
+    end.max
   end
 
   def magnets?
     magnets_height > 0 && magnets_diameter > 0
+  end
+
+  def comments_scad
+    <<-COMMENTS.strip_heredoc
+      // Source: https://github.com/carlosparamio/box_generator
+      // Settings: #{settings.inspect}
+    COMMENTS
+  end
+
+  def header_scad
+    <<-HEADER.strip_heredoc
+      module roundedcube(xdim, ydim, zdim, rdim) {
+        hull() {
+          translate([rdim, rdim, 0]) cylinder(h = zdim, r = rdim);
+          translate([xdim - rdim, rdim, 0]) cylinder(h = zdim, r = rdim);
+          translate([rdim, ydim - rdim, 0]) cylinder(h = zdim, r = rdim);
+          translate([xdim - rdim, ydim - rdim, 0]) cylinder(h = zdim, r = rdim);
+        }
+      }
+    HEADER
+  end
+
+  def main_cube_scad
+    "cube([#{external_x}, #{external_y}, #{external_z}]);"
+  end
+
+  def compartiments_scad
+    result  = ""
+    x_shift = external_walls
+    compartiments.each do |compartiments_row|
+      compartiments_digger = CompartimentsDigger.new(
+        "compartiments_separation" => compartiments_separation,
+        "compartiments"            => compartiments_row
+      )
+      result += <<-COMPARTIMENTS_ROW
+        translate([
+          #{x_shift},
+          #{external_walls},
+          #{external_z - compartiments_digger.external_z}
+        ]) {
+          #{compartiments_digger.to_scad};
+        }
+      COMPARTIMENTS_ROW
+      x_shift += compartiments_digger.external_x + compartiments_separation
+    end
+    result
+  end
+
+  def magnets_scad
+    <<-MAGNETS.strip_heredoc
+      translate([
+        #{external_walls / 2},
+        #{external_walls / 2},
+        #{external_z - magnets_height + 1}
+      ]) {
+        cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);
+      }
+
+      translate([
+        #{external_x - external_walls / 2},
+        #{external_walls / 2},
+        #{external_z - magnets_height + 1}
+      ]) {
+        cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);
+      }
+
+      translate([
+        #{external_walls / 2},
+        #{external_y - external_walls / 2},
+        #{external_z - magnets_height + 1}
+      ]) {
+        cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);
+      }
+
+      translate([
+        #{external_x - external_walls / 2},
+        #{external_y - external_walls / 2},
+        #{external_z - magnets_height + 1}
+      ]) {
+        cylinder(#{magnets_height}, d = #{magnets_diameter}, $fn = 100);
+      }
+    MAGNETS
+  end
+
+  def to_scad
+    <<-SCAD.strip_heredoc
+      #{comments_scad}
+
+      #{header_scad}
+
+      difference() {
+        #{main_cube_scad}
+        #{compartiments_scad}
+        #{magnets_scad if magnets?}
+      }
+    SCAD
   end
 
 end
