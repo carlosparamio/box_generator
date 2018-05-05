@@ -42,26 +42,20 @@ class BoxGenerator
   end
 
   def internal_x
-    compartiments.sum do |compartiments_row|
-      compartiments_row.map do |compartiment|
-        compartiment[0]
-      end.max
-    end + (compartiments.size - 1) * compartiments_separation
+    compartiment_diggers.sum do |compartiments_digger|
+      compartiments_digger.external_x
+    end + (compartiment_diggers.size - 1) * compartiments_separation
   end
 
   def internal_y
-    compartiments.map do |compartiments_row|
-      compartiments_row.sum do |compartiment|
-        compartiment[1]
-      end + (compartiments_row.size - 1) * compartiments_separation
+    compartiment_diggers.map do |compartiments_digger|
+      compartiments_digger.external_y
     end.max
   end
 
   def internal_z
-    compartiments.map do |compartiments_row|
-      compartiments_row.map do |compartiment|
-        compartiment[2]
-      end.max
+    compartiment_diggers.map do |compartiments_digger|
+      compartiments_digger.external_z
     end.max
   end
 
@@ -93,15 +87,20 @@ class BoxGenerator
     "cube([#{external_x}, #{external_y}, #{external_z}]);"
   end
 
-  def compartiments_scad
-    result  = ""
-    x_shift = external_walls
-    compartiments.each do |compartiments_row|
-      compartiments_digger = CompartimentsDigger.new(
+  def compartiment_diggers
+    compartiments.map do |compartiments_row|
+      CompartimentsDigger.new(
         "compartiments_separation" => compartiments_separation,
         "compartiments"            => compartiments_row
       )
-      result += <<-COMPARTIMENTS_ROW
+    end
+  end
+
+  def compartiments_scad
+    result  = ""
+    x_shift = external_walls
+    compartiment_diggers.each do |compartiments_digger|
+      result += <<-COMPARTIMENTS_DIGGER
         translate([
           #{x_shift},
           #{external_walls},
@@ -109,7 +108,7 @@ class BoxGenerator
         ]) {
           #{compartiments_digger.to_scad};
         }
-      COMPARTIMENTS_ROW
+      COMPARTIMENTS_DIGGER
       x_shift += compartiments_digger.external_x + compartiments_separation
     end
     result

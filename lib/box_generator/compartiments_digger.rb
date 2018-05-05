@@ -57,7 +57,7 @@ class BoxGenerator
     end
 
     def external_y
-      compartiments_y.max + compartiments_separation * (compartiments.size - 1)
+      compartiments_y.sum + compartiments_separation * (compartiments.size - 1)
     end
 
     def external_z
